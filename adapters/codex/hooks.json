@@ -1,0 +1,28 @@
+{
+  "_comment": "Merge into ~/.codex/hooks.json. Verified 2026-09-30 against an installed Codex CLI: the file uses the SAME schema as Claude Code (event -> list of {matcher, hooks:[{type,command,timeout}]}), so one adapter covers both. Confirmed by reading ~/.codex/hooks.json, which mirrors a Claude settings.json hooks block field-for-field.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "csl hook --harness codex",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "csl init",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

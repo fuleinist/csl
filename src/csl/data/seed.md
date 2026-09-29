@@ -1,0 +1,9 @@
+<!-- common-sense v2 | cap 2500 | rules 8 | updated 2026-09-30 -->
+- R-001 | when: about to send, publish or post something outside this machine | do: re-read the exact recipient and payload once more; if either is uncertain, ask before sending | chk: human | scope: general | ev: 0 | last: 2026-09-30
+- R-002 | when: about to run a destructive or irreversible operation | do: confirm the target and whether a backup or a dry run exists before running it | chk: human | scope: general | ev: 0 | last: 2026-09-30
+- R-003 | when: about to change configuration or a scheduler entry | do: show the diff and the exact rollback command before applying it | chk: human | scope: general | ev: 0 | last: 2026-09-30
+- R-004 | when: rewriting a json state file | do: back up first, then rewrite and re-validate, never edit it in place | chk: mech | scope: general | ev: 0 | last: 2026-09-30
+- R-005 | when: a schema or version gate refuses to start a service | do: match the build to the data; never edit the version marker to silence the gate | chk: mech | scope: general | ev: 0 | last: 2026-09-30
+- R-006 | when: publishing a versioned release | do: verify the changelog, the tag and the built artifact all point at the same commit | chk: mech | scope: general | ev: 0 | last: 2026-09-30
+- R-007 | when: a background job reports that it finished | do: trace the job's origin before relaying it; a duplicate or stale completion is not progress | chk: judge | scope: general | ev: 0 | last: 2026-09-30
+- R-008 | when: reconciling merged pull requests in a repository you own | do: sweep the pulls endpoint rather than searching recently merged work | chk: mech | scope: general | ev: 0 | last: 2026-09-30

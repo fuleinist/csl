@@ -1,0 +1,39 @@
+{
+  "_comment": "Merge this into ~/.claude/settings.json (or .claude/settings.json in a project). Verified 2026-09-30 against an installed Claude Code: settings.json carries a `hooks` object keyed by event, each a list of {matcher, hooks:[{type, command, timeout}]}. Exit code 2 from the command blocks the tool call; stdout JSON {\"decision\":\"block\",\"reason\":...} also blocks. csl emits both, and also the Hermes dialect (\"action\"/\"message\"), so the same command works unchanged on Hermes.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit|WebFetch|WebSearch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "csl hook --harness claude-code",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "csl init",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "csl stats",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

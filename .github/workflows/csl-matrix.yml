@@ -1,0 +1,54 @@
+name: csl-matrix
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: py${{ matrix.python }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      # Install exactly what a contributor would type, then run the same commands.
+      - name: Install
+        run: python -m pip install -e .
+
+      - name: Validate the shipped seed
+        run: csl init && csl validate
+
+      # The suite must never depend on a developer's leftovers, so each runs in a fresh CSL_HOME.
+      - name: Adversarial probe (36 cases)
+        run: python tests/probe.py
+        env:
+          CSL_HOME: ${{ runner.temp }}/csl-probe
+
+      - name: Hook tests (19 cases)
+        run: python tests/test_hook.py
+        env:
+          CSL_HOME: ${{ runner.temp }}/csl-hook
+
+      - name: Acceptance (end to end)
+        run: python tests/acceptance.py
+        env:
+          CSL_HOME: ${{ runner.temp }}/csl-accept
+
+      # A hook that blocks by accident is worse than one that misses, so assert the default.
+      - name: The default mode must not block
+        shell: bash
+        run: |
+          set +e
+          echo '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git push --force"},"session_id":"ci"}' | csl hook
+          code=$?
+          echo "exit=$code"
+          test "$code" -eq 0 || { echo "audit mode blocked — it must not"; exit 1; }

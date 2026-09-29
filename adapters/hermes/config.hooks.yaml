@@ -1,0 +1,23 @@
+# Hermes agent — csl adapter (shell hook)
+#
+# Merge into ~/.hermes/config.yaml. Verified 2026-09-30 against an installed Hermes agent:
+# `hermes_cli/config_defaults.py` documents the schema as
+#   "event name (pre_tool_call, post_tool_call, pre_llm_call, subagent_stop, ...) ->
+#    list of {matcher, command, timeout}"
+# and `agent/shell_hooks.py` documents the wire as
+#   stdin JSON {hook_event_name, tool_name, tool_input, session_id, cwd, extra}
+#   stdout JSON {"decision"|"action": "block"|"modify", ...}; exit code 2 blocks even with no JSON.
+# csl emits both dialects, so the same command works for Claude Code, Codex and Hermes.
+#
+# Hermes asks for first-run consent per (event, command) and remembers it in
+# ~/.hermes/shell-hooks-allowlist.json. For non-interactive runs (gateway, cron) approve with
+# --accept-hooks or HERMES_ACCEPT_HOOKS=1.
+
+hooks:
+  pre_tool_call:
+    - matcher: "terminal|write_file|patch"
+      command: "csl hook --harness hermes"
+      timeout: 5
+  post_tool_call:
+    - command: "csl stats"
+      timeout: 10

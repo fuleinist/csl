@@ -1,0 +1,26 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# A layer is user data, never committed. If you are developing csl itself, point CSL_HOME at a
+# scratch dir so your own rules and ledger stay out of the repo.
+.csl/
+common-sense.md
+validation.jsonl
+candidates.jsonl
+state.json
+rules/
+proposals/
+evolve/
+
+# Test/probe residue
+probe-*.md
+*.bak
+*.h7bak
+*.h9bak
+*.rt6bak
+cs-*-sandbox/

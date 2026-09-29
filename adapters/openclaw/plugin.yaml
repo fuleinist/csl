@@ -1,0 +1,8 @@
+name: csl
+version: "0.1.0"
+description: common-sense layer — gate high-stakes tool calls against a self-improving rule file.
+author: Chris Chen
+hooks:
+  - pre_tool_call
+provides_hooks:
+  - pre_tool_call
