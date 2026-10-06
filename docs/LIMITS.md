@@ -35,11 +35,11 @@ have. So this file states the boundary plainly.
 
 ## Unverified (stated as such on purpose)
 
-* **OpenClaw blocking semantics.** The manifest contract (`plugin.yaml` with `hooks:`/
-  `provides_hooks`, `register(ctx)`, `ctx.register_hook("pre_tool_call", fn)`) is verified against a
-  working extension on the author's machine. Whether OpenClaw honours a raised exception or a
-  returned directive as a refusal is **not** verified; the adapter raises and warns, and never fails
-  silently. See `adapters/openclaw/CONTRACT.md`.
+* **OpenClaw blocking semantics.** The manifest and registration contract
+  (`openclaw.plugin.json`, `package.json` with `openclaw.extensions`,
+  `api.on("before_tool_call", fn, { priority })`) is read from the installed OpenClaw 2026.9.6 docs
+  and a live extension. The refusal shape (`{ block: true, blockReason }`) is documented, but no live
+  agent turn was driven to observe a refusal. See `adapters/openclaw/CONTRACT.md`.
 * **DeepSeek Harness.** No install was available to inspect, so nothing is claimed.
   `adapters/deepseek/README.md` describes the generic contract to wire by hand.
 * **High-stakes inference.** The hook classifies from a regex table over the command text. It will

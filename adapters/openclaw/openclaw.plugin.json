@@ -1,0 +1,40 @@
+{
+  "id": "csl",
+  "name": "Common-Sense Layer",
+  "version": "0.2.0",
+  "description": "Check high-stakes tool calls against a self-improving rule file, comment on them, and (in gate mode) block unvalidated ones.",
+  "homepage": "https://github.com/fuleinist/csl",
+  "license": "MIT",
+  "enabledByDefault": false,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "mode": {
+        "type": "string",
+        "enum": ["audit", "gate"],
+        "default": "audit",
+        "description": "audit records and comments, and never blocks. gate blocks an unvalidated high-stakes call."
+      },
+      "cslHome": {
+        "type": "string",
+        "description": "Override CSL_HOME. Defaults to $CSL_HOME, then ~/.csl."
+      },
+      "timeoutMs": {
+        "type": "number",
+        "default": 5000,
+        "description": "Budget for one `csl hook` call. A timeout fails open."
+      },
+      "comment": {
+        "type": "boolean",
+        "default": true,
+        "description": "Surface an audit verdict to the model on the next prompt build. Off means ledger-only."
+      }
+    }
+  },
+  "uiHints": {
+    "mode": { "label": "Mode (audit or gate)" },
+    "comment": { "label": "Send audit comments to the model" },
+    "timeoutMs": { "label": "Hook timeout (ms)" }
+  }
+}

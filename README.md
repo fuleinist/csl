@@ -74,12 +74,13 @@ In `audit` mode (the default) that is a note. Set `CSL_HOOK_MODE=gate` and the s
 | Claude Code | `PreToolUse` shell hook | verified against a live install |
 | Codex | `PreToolUse` shell hook — same `hooks.json` schema as Claude Code | verified against a live install |
 | Hermes | `pre_tool_call` shell hook (`hooks:` in `config.yaml`) | verified against the agent source |
-| OpenClaw | `pre_tool_call` extension hook | manifest verified; **blocking semantics unverified** |
+| OpenClaw | plugin hook `before_tool_call`, plus `before_prompt_build` for the comment | contract read from the installed docs; a live block is **unobserved** |
 | DeepSeek Harness | unknown | **unverified** — wire by hand from the generic contract |
 
-All four verified harnesses share one wire — stdin JSON
+Claude Code, Codex and Hermes share one wire — stdin JSON
 `{hook_event_name, tool_name, tool_input, session_id, cwd}`, exit 2 to block — so **one command
-covers them**; only the config file differs.
+covers them**; only the config file differs. OpenClaw uses its own plugin API instead: the adapter
+sends it the same stdin JSON, but registers through `api.on` and returns `{ block, blockReason }`.
 
 ## CLI
 
