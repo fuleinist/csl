@@ -38,6 +38,14 @@ jobs:
         env:
           CSL_HOME: ${{ runner.temp }}/csl-hook
 
+      # The bridge is the piece that makes audit mode visible on Hermes. It is a second process
+      # between the layer and the harness, so it can lose the block exit code or the note and look
+      # healthy either way. It seeds its own CSL_HOME and needs `csl` on PATH.
+      - name: Hermes bridge tests (17 cases)
+        run: python tests/test_hermes_bridge.py
+        env:
+          CSL_HOME: ${{ runner.temp }}/csl-bridge
+
       - name: Acceptance (end to end)
         run: python tests/acceptance.py
         env:

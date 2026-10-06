@@ -1,13 +1,33 @@
 # Hermes agent — csl adapter (shell hook)
 #
-# Merge into ~/.hermes/config.yaml. Verified 2026-09-30 against an installed Hermes agent:
+# Merge into ~/.hermes/config.yaml. Verified 2026-10-06 against an installed Hermes agent.
 # `hermes_cli/config_defaults.py` documents the schema as
 #   "event name (pre_tool_call, post_tool_call, pre_llm_call, subagent_stop, ...) ->
 #    list of {matcher, command, timeout}"
 # and `agent/shell_hooks.py` documents the wire as
 #   stdin JSON {hook_event_name, tool_name, tool_input, session_id, cwd, extra}
 #   stdout JSON {"decision"|"action": "block"|"modify", ...}; exit code 2 blocks even with no JSON.
-# csl emits both dialects, so the same command works for Claude Code, Codex and Hermes.
+# csl emits both dialects, so one command covers Claude Code, Codex and Hermes.
+#
+# TWO entries, because Hermes needs two. `_parse_pre_tool_call` honours only `block`, `modify` and
+# `approve`, so an audit verdict cannot ride `pre_tool_call`: it is parsed and discarded. Hermes
+# consumes {"context": "..."} on `pre_llm_call`, so the note travels there instead.
+#
+#   `csl-bridge.py pretool`  runs `csl hook`, keeps the block directive and the exit code, and
+#                            queues any audit note. It fails open when csl is absent.
+#   `csl-bridge.py prellm`   drains the queued notes and returns them as context.
+#
+# Both entries use a script path rather than a bare command. Hermes then supplies the interpreter,
+# and `hermes hooks doctor` can check the file. A bare `csl hook ...` command makes that check
+# report "script missing or not executable", because it tests the resolved argv[0] as a path.
+#
+# The matcher covers every tool that can carry a command, a scheduler entry or a configuration
+# payload. Hermes matches the tool name with `fullmatch`, so a tool absent from this list never
+# reaches the hook. `execute_code` and `tool_call` were missing from the earlier list, which let a
+# release or a force-push issued through them bypass the layer.
+#
+# There is no `post_tool_call` entry on purpose. `csl stats` prints plain text, which Hermes cannot
+# turn into a directive, and the entry would spawn a process after every tool call.
 #
 # Hermes asks for first-run consent per (event, command) and remembers it in
 # ~/.hermes/shell-hooks-allowlist.json. For non-interactive runs (gateway, cron) approve with
@@ -15,9 +35,9 @@
 
 hooks:
   pre_tool_call:
-    - matcher: "terminal|write_file|patch"
-      command: "csl hook --harness hermes"
+    - matcher: "terminal|execute_code|browser_exec|tool_call|delegate_task|process_manage|write_file|patch|skill_manage|cronjob_manage|computer_use"
+      command: "~/.hermes/agent-hooks/csl-bridge.py pretool"
       timeout: 5
-  post_tool_call:
-    - command: "csl stats"
-      timeout: 10
+  pre_llm_call:
+    - command: "~/.hermes/agent-hooks/csl-bridge.py prellm"
+      timeout: 5

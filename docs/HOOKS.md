@@ -29,7 +29,7 @@ Claude Code, Codex and Hermes with no per-harness code. Only the config file dif
 |---|---|---|---|
 | Claude Code | shell hook on `PreToolUse` | `~/.claude/settings.json` → `hooks` | read a live `settings.json`: events `SessionStart`, `PreToolUse`, `PostToolUse`, `Stop`; entries `{matcher, hooks:[{type:"command", command, timeout}]}` |
 | Codex | shell hook on `PreToolUse` | `~/.codex/hooks.json` | read a live `hooks.json`: identical schema to Claude Code, field for field |
-| Hermes | shell hook (`pre_tool_call`) **or** Python plugin | `~/.hermes/config.yaml` → `hooks` | `hermes_cli/config_defaults.py` (schema: `event -> [{matcher, command, timeout}]`) and `agent/shell_hooks.py` (wire format, exit-2-blocks, fail-open, consent + allowlist) |
+| Hermes | shell hooks — `pre_tool_call` to gate, `pre_llm_call` to comment | `~/.hermes/config.yaml` → `hooks` | `hermes_cli/config_defaults.py` (schema: `event -> [{matcher, command, timeout}]`) and `agent/shell_hooks.py` (wire format, exit-2-blocks, fail-open, consent + allowlist). `_parse_pre_tool_call` accepts only `block`, `modify` and `approve`, so an audit verdict needs the second entry — see `adapters/hermes/csl-bridge.py` |
 | OpenClaw | plugin hook (`before_tool_call`), plus `before_prompt_build` for the comment | `~/.openclaw/extensions/<id>/` → `openclaw.plugin.json` | read the installed `docs/plugins/hooks/tool-policy.md` and `docs/plugins/hooks/prompt-and-session.md`, and the live extension `~/.openclaw/extensions/rtk-rewrite/` (`openclaw.plugin.json` + `index.ts`). The refusal shape is documented; a live block was **NOT observed** — see `adapters/openclaw/CONTRACT.md` |
 | DeepSeek Harness | unknown | unknown | **UNVERIFIED.** No install available to inspect. `adapters/deepseek/` documents the generic contract to wire by hand |
 
@@ -44,9 +44,11 @@ Then merge the adapter config:
 
 * **Claude Code** — merge `adapters/claude-code/settings.hooks.json` into `~/.claude/settings.json`.
 * **Codex** — merge `adapters/codex/hooks.json` into `~/.codex/hooks.json`.
-* **Hermes** — merge `adapters/hermes/config.hooks.yaml` into `~/.hermes/config.yaml`. Hermes asks
-  for consent on the first run of a new command; for gateway/cron runs approve with
-  `--accept-hooks` or `HERMES_ACCEPT_HOOKS=1`.
+* **Hermes** — copy `adapters/hermes/csl-bridge.py` to `~/.hermes/agent-hooks/`, then merge
+  `adapters/hermes/config.hooks.yaml` into `~/.hermes/config.yaml`. Two entries are needed:
+  `pre_tool_call` gates, and `pre_llm_call` carries the audit comment. Hermes asks for consent on
+  the first run of a new command; for gateway/cron runs approve with `--accept-hooks` or
+  `HERMES_ACCEPT_HOOKS=1`.
 * **OpenClaw** — copy `adapters/openclaw/` to `~/.openclaw/extensions/csl/`, add `csl` to
   `plugins.allow` in `~/.openclaw/openclaw.json`, run `openclaw plugins registry --refresh`, then
   `openclaw plugins enable csl`. OpenClaw does not read `plugin.yaml`, and it does not load a Python
