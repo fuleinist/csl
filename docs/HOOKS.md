@@ -31,7 +31,7 @@ Claude Code, Codex and Hermes with no per-harness code. Only the config file dif
 | Codex | shell hook on `PreToolUse` | `~/.codex/hooks.json` | read a live `hooks.json`: identical schema to Claude Code, field for field |
 | Hermes | shell hooks — `pre_tool_call` to gate, `pre_llm_call` to comment | `~/.hermes/config.yaml` → `hooks` | `hermes_cli/config_defaults.py` (schema: `event -> [{matcher, command, timeout}]`) and `agent/shell_hooks.py` (wire format, exit-2-blocks, fail-open, consent + allowlist). `_parse_pre_tool_call` accepts only `block`, `modify` and `approve`, so an audit verdict needs the second entry — see `adapters/hermes/csl-bridge.py` |
 | OpenClaw | plugin hook (`before_tool_call`), plus `before_prompt_build` for the comment | `~/.openclaw/extensions/<id>/` → `openclaw.plugin.json` | read the installed `docs/plugins/hooks/tool-policy.md` and `docs/plugins/hooks/prompt-and-session.md`, and the live extension `~/.openclaw/extensions/rtk-rewrite/` (`openclaw.plugin.json` + `index.ts`). The refusal shape is documented; a live block was **NOT observed** — see `adapters/openclaw/CONTRACT.md` |
-| DeepSeek Harness | unknown | unknown | **UNVERIFIED.** No install available to inspect. `adapters/deepseek/` documents the generic contract to wire by hand |
+| DeepSeek Harness | command hook through the harness's own Claude Code bridge (`@deepseek-ai/dsh-hooks-claude-code`) | an `insert` patch that mounts the bridge, with `configPath` pointing at the hook config | read the installed `0.2.0-rc.2` packages, **and ran the harness**: the hook fires, and `hookSpecificOutput.permissionDecision: "deny"` blocks the tool while exit 2 does **not** (it is recorded as 1 and the tool runs). A layer-driven block is unobserved — see `adapters/deepseek/CONTRACT.md` |
 
 ## Install
 
@@ -53,6 +53,13 @@ Then merge the adapter config:
   `plugins.allow` in `~/.openclaw/openclaw.json`, run `openclaw plugins registry --refresh`, then
   `openclaw plugins enable csl`. OpenClaw does not read `plugin.yaml`, and it does not load a Python
   module.
+* **DeepSeek Harness** — merge `adapters/deepseek/hooks.json` into a hook config, then **insert** the
+  bridge into the active profile's patch: `- insert: [ { id: hooks-claude-code,
+  name: '@deepseek-ai/dsh-hooks-claude-code', config: { configPath: /abs/path/hooks.json } } ]`. No
+  shipped bundle declares a hooks entry, so an id-targeted patch is a silent no-op. Two entries are
+  needed, because `PreToolUse` cannot carry the advisory note. Keep the command paths unquoted: the
+  harness runs a hook command through PowerShell, which reads a leading quoted token as an
+  expression.
 
 Use an absolute path to `csl` in the config if the harness does not inherit your `PATH`.
 

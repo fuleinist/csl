@@ -1,21 +1,34 @@
-# DeepSeek Harness — UNVERIFIED adapter
+# DeepSeek Harness — verified against a live install, with one gap
 
-**No install was available to inspect, so nothing here is claimed as tested.** This file describes
-the generic contract, which is what the other four harnesses turned out to share. If DeepSeek's
-hook wire matches it, the adapter is the two lines below; if it does not, fix this file rather than
-trusting it.
+**The bridge fires inside the harness, and a deny blocks a tool call with a reason the model reads.
+One step stays unobserved: a block produced by the layer itself inside the harness.** Install:
+`0.2.0-rc.2` on Windows 11.
 
-## What we know
+Read [`CONTRACT.md`](CONTRACT.md) for the measured contract, and [`PLAN.md`](PLAN.md) for the plan
+that produced it.
 
-Nothing specific. We did not read a DeepSeek Harness config, and none of the harness code on this
-machine belongs to it.
+## What we know now
 
-## The generic contract to wire by hand
+* The harness ships a bridge that runs one command hook from a Claude Code `hooks.json`:
+  `@deepseek-ai/dsh-hooks-claude-code`. `csl hook` already reads that wire, so the shared verdict
+  logic needs no change.
+* Exit code 2 blocks the tool call.
+* The harness reads the exit-2 reason from **stderr**. `csl hook` writes the reason to **stdout**.
+  The adapter must copy the reason to stderr, or the block carries no reason the model can read.
+  See "The gate channel" in `PLAN.md`.
+* `PreToolUse` cannot attach context. An advisory note therefore needs a second entry point, and
+  `UserPromptSubmit` is the recommended one.
+* The session id field is `session_id`, and the bridge always fills it.
 
-If the harness can run a command before a tool call and pass it a JSON event, then:
+Sources for each claim, with the section name that holds it: `PLAN.md`, section "What is verified
+now".
+
+## The generic contract, as a fallback
+
+If a build cannot run the Claude Code bridge, wire the harness by hand. The command is the whole
+adapter:
 
 ```bash
-# one command, whole adapter
 csl hook --harness deepseek
 ```
 
@@ -36,9 +49,10 @@ exit 2   # block — stderr/stdout carries the reason
 
 Two things to check when you wire it:
 
-1. **Does the harness honour exit code 2 as a block?** If it only reads stdout JSON, use the
-   `decision`/`reason` pair. If it has its own verdict schema, add a formatter in
-   `src/csl/hook.py:emit()` — that function is the only place harness output shape lives.
+1. **Does the harness honour exit code 2 as a block?** On `0.2.0-rc.2` it does, and it reads the
+   reason from stderr. If a harness only reads stdout JSON, use the `decision`/`reason` pair. If it
+   has its own verdict schema, add a formatter in `src/csl/hook.py:emit()` — that function is the
+   only place the harness output shape lives.
 2. **What is the session id field called?** `csl` reads `session`/`session_id`/`chat_id`/
    `conversation_id` and falls back to `"unknown"`. A wrong session id is not cosmetic: verdicts
    recorded this session are what clear the gate, so an id that changes per tool call means every

@@ -75,7 +75,7 @@ In `audit` mode (the default) that is a note. Set `CSL_HOOK_MODE=gate` and the s
 | Codex | `PreToolUse` shell hook — same `hooks.json` schema as Claude Code | verified against a live install |
 | Hermes | `pre_tool_call` shell hook to gate, `pre_llm_call` to comment (`hooks:` in `config.yaml`) | verified against the agent source |
 | OpenClaw | plugin hook `before_tool_call`, plus `before_prompt_build` for the comment | contract read from the installed docs; a live block is **unobserved** |
-| DeepSeek Harness | unknown | **unverified** — wire by hand from the generic contract |
+| DeepSeek Harness | command hook through the harness's own Claude Code bridge (`@deepseek-ai/dsh-hooks-claude-code`), mounted by an `insert` patch | verified against a live install: the hook fires, and a `deny` blocks the tool while exit 2 does **not**; a block driven by the layer itself is **unobserved** — see `adapters/deepseek/CONTRACT.md` |
 
 Claude Code, Codex and Hermes share one wire — stdin JSON
 `{hook_event_name, tool_name, tool_input, session_id, cwd}`, exit 2 to block — so **one command
