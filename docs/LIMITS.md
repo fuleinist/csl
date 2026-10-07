@@ -32,6 +32,10 @@ have. So this file states the boundary plainly.
   honest citation from a plausible one.
 * **`CSL_HOOK_MODE=audit`.** The default does not block anything. It records and annotates. Only
   `gate` refuses calls, and only for the four high-stakes classes the hook can infer.
+  Neither Hermes nor OpenClaw accepts an advisory payload on its pre-tool-call event, so "annotates"
+  needs a second hop: Hermes reads `{"context": ...}` on `pre_llm_call`, and OpenClaw reads
+  `prependContext` on `before_prompt_build`. `csl hook` alone is silent on both harnesses. Treat a
+  bare `csl hook` entry as a gate, not as a comment.
 
 ## Unverified (stated as such on purpose)
 

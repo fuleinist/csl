@@ -26,6 +26,12 @@ The four gated classes: external sends/publishes/posts, destructive or irreversi
 config or scheduler edits, and promises of future work. A non-zero exit is not an error — it is a
 question you must answer by actually doing the check.
 
+**Where the comment lands.** On Hermes and OpenClaw, the pre-tool-call hook has no advisory channel:
+it accepts a block, and nothing else. A bare `csl hook` entry is therefore a gate and no more.
+Hermes delivers the comment on `pre_llm_call` as `{"context": ...}`, and OpenClaw on
+`before_prompt_build` as `{prependContext}`. If you wired `csl hook` directly and never saw a note,
+that is why.
+
 **2. Record the verdict, with evidence.** The ledger is the only source of truth; `ev` and `last`
 in the rule file are *derived* from it, so a rule cannot look exercised without a recorded verdict.
 

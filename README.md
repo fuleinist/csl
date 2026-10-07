@@ -73,7 +73,7 @@ In `audit` mode (the default) that is a note. Set `CSL_HOOK_MODE=gate` and the s
 |---|---|---|
 | Claude Code | `PreToolUse` shell hook | verified against a live install |
 | Codex | `PreToolUse` shell hook — same `hooks.json` schema as Claude Code | verified against a live install |
-| Hermes | `pre_tool_call` shell hook (`hooks:` in `config.yaml`) | verified against the agent source |
+| Hermes | `pre_tool_call` shell hook to gate, `pre_llm_call` to comment (`hooks:` in `config.yaml`) | verified against the agent source |
 | OpenClaw | plugin hook `before_tool_call`, plus `before_prompt_build` for the comment | contract read from the installed docs; a live block is **unobserved** |
 | DeepSeek Harness | unknown | **unverified** — wire by hand from the generic contract |
 
@@ -100,12 +100,13 @@ Agent-facing usage guide: [skills/common-sense/SKILL.md](skills/common-sense/SKI
 
 ## Tests
 
-Three suites, no test framework required:
+Four suites, no test framework required:
 
 ```bash
-python tests/probe.py        # 36 adversarial cases: every bug this layer has ever had
-python tests/test_hook.py    # 19: hook classification, dialects, exit codes, fail-open
-python tests/acceptance.py   # 15: candidate -> gates -> live rule -> gate -> clear, end to end
+python tests/probe.py              # 36 adversarial cases: every bug this layer has ever had
+python tests/test_hook.py          # 19: hook classification, dialects, exit codes, fail-open
+python tests/test_hermes_bridge.py # 17: the Hermes comment bridge, the gate passthrough, fail open
+python tests/acceptance.py         # 15: candidate -> gates -> live rule -> gate -> clear, end to end
 ```
 
 `probe.py` is the interesting one: each case was written **after** a real defect, and several were
