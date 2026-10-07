@@ -1,80 +1,103 @@
 # OpenClaw adapter — CONTRACT
 
-## Verified (read from a working extension on the author's machine, 2026-09-30)
+## What changed and why
 
-**Manifest.** `~/.openclaw/extensions/rtk-rewrite/plugin.yaml`:
+This directory used to ship `plugin.yaml` and a Python `__init__.py`. Neither is the OpenClaw plugin
+format, and the manifest was recorded as **verified** when it was not. This version replaces both
+with a TypeScript plugin and states its evidence.
 
-```yaml
-name: rtk-rewrite
-version: "0.1.0"
-description: Rewrite Hermes terminal commands through RTK before execution.
-author: RTK Contributors
-hooks:
-  - pre_tool_call
-provides_hooks:
-  - pre_tool_call
+## Verified (OpenClaw 2026.9.6, 2026-10-06)
+
+Read from the installed harness, not from memory. Sources:
+
+* `node_modules/openclaw/docs/plugins/hooks/tool-policy.md` — the tool-call policy hook.
+* `node_modules/openclaw/docs/plugins/hooks/prompt-and-session.md` — the prompt hooks.
+* `node_modules/openclaw/docs/plugins/sdk-entrypoints.md` — plugin shapes and entry points.
+* the live extension directory `~/.openclaw/extensions/rtk-rewrite/`, which holds
+  `openclaw.plugin.json` (705 bytes) and `index.ts` (4536 bytes). It has **no** `plugin.yaml` and
+  **no** `__init__.py`.
+
+**Manifest.** A directory under `~/.openclaw/extensions/<id>/` holding:
+
+* `openclaw.plugin.json` — at least `id`, `name`, `version`, `description`, plus optional
+  `configSchema` and `uiHints`.
+* `package.json` — `main`, and `openclaw.extensions` naming the entry module.
+* the entry module, `index.ts`.
+
+**Registration.** The module's default export receives the plugin API:
+
+```ts
+export default function register(api: any) {
+  api.on("before_tool_call", (event, ctx) => { /* ... */ }, { priority: 50 });
+}
 ```
 
-So the adapter is a directory under `~/.openclaw/extensions/<name>/` containing `plugin.yaml` with
-`name`/`version`/`description`/`author`, the `hooks:` list it wants, and `provides_hooks:`.
+There is no `ctx.register_hook`. The event is `before_tool_call`, not `pre_tool_call`.
 
-**Registration and hook signature.** From that extension's `__init__.py`:
+**Refusal.** `before_tool_call` returns one of:
 
-```python
-def register(ctx):
-    ctx.register_hook("pre_tool_call", _pre_tool_call)
-
-def _pre_tool_call(tool_name=None, args=None, **_kwargs):
-    ...
-    args["command"] = rewritten          # mutate in place
+```ts
+type BeforeToolCallResult = {
+  params?: Record<string, unknown>;   // rewrite the tool parameters
+  block?: boolean;                    // terminal: skips lower-priority handlers
+  blockReason?: string;
+  requireApproval?: {
+    title: string;
+    description: string;
+    severity?: "info" | "warning" | "critical";
+    /* ... */
+  };
+};
 ```
 
-Verified from the source: the entry point is `register(ctx)`, the hook is registered with
-`ctx.register_hook("<event>", fn)`, the callback receives keyword arguments `tool_name` and `args`
-(plus others, hence `**_kwargs`), and `args` is a **mutable dict** the hook edits in place. The
-reference implementation returns `None` in every path.
+Raising an exception is not part of that contract. `index.ts` returns `{ block: true, blockReason }`.
 
-## NOT verified — the part that matters for a guardrail
+**No advisory channel.** `before_tool_call` cannot carry a note. An audit verdict has to ride a
+prompt hook, which returns `{ prependContext }` or `{ appendContext }`. `index.ts` registers
+`before_prompt_build` for exactly that. Without it, `audit` mode computes a verdict and discards it.
 
-**How an OpenClaw hook refuses a call.** The reference extension only rewrites arguments; nothing in
-it demonstrates a block. It therefore provides no evidence for any of:
+**Enablement.** A plugin must appear in `plugins.allow` in `~/.openclaw/openclaw.json`.
+`openclaw plugins enable <id>` refuses a plugin that is absent from that list, with
+`blocked by allowlist`. A new directory becomes visible after `openclaw plugins registry --refresh`.
 
-* whether returning a directive dict from the hook blocks the call;
-* whether raising an exception blocks the call;
-* whether there is a documented refusal value or exit convention.
+**Tool name.** OpenClaw names its shell tool `exec`. A handler reads `event.toolName` and
+`event.params`.
 
-`__init__.py` in this directory handles that honestly: it calls `csl hook --harness openclaw`, and
+## NOT verified
 
-* on a block verdict it **raises `PermissionError`** (and returns a `{"decision":"block"}` directive
-  on the non-strict path), so whichever mechanism the host honours will stop the call;
-* it **never fails silently** — every call is appended to `~/.csl/hook-openclaw.jsonl` with the exit
-  code and verdict, so you can see what actually fired;
-* it **fails open** on any internal error, because a wedged agent is worse than a missing guard.
+**That a block stops a live call.** The refusal shape and the `block: true` semantics are documented,
+and the docs carry a caveat this adapter cannot test from here: native tool relays can have narrower
+contracts, and Codex native tools reject parameter rewrites while still supporting blocking. No live
+agent turn was driven on this machine to observe a refusal. Treat the blocking path as documented but
+unobserved.
 
-## How to verify it in five minutes
+The adapter does not hide that. Every decision, and every failure to reach the layer, is appended to
+`$CSL_HOME/hook-openclaw.jsonl` with its exit code.
+
+## Verify it in two minutes
 
 ```bash
-# 1. install and see what the hook decides, without OpenClaw in the loop
-echo '{"hook_event_name":"pre_tool_call","tool_name":"bash",
+# 1. what the layer decides, with OpenClaw out of the loop
+echo '{"hook_event_name":"before_tool_call","tool_name":"exec",
        "tool_input":{"command":"git push --force"},"session_id":"probe"}' \
   | csl hook --harness openclaw --explain
 
-# 2. put the extension in place, then trigger a high-stakes call with CSL_HOOK_MODE=gate
-export CSL_HOOK_MODE=gate
-# -> did the tool call actually stop? that single observation settles the question
+# 2. drive both hooks directly, no live agent turn needed
+node adapters/openclaw/verify.mjs
 
 # 3. read what the adapter recorded
 cat ~/.csl/hook-openclaw.jsonl
 ```
 
-If the call did **not** stop, the mechanism is wrong, not the verdict: change the refusal in
-`_pre_tool_call` to whatever OpenClaw honours, and record the answer here. Until then this adapter
-is a **logger with an attempted block**, not a guard.
+`verify.mjs` needs Node 22.18+ or 23+, which strip TypeScript types natively. It loads `index.ts`,
+registers it against a stub plugin API, and asserts: `audit` never blocks, `gate` blocks, the ledger
+is written, the comment is delivered and then drained, a benign call stays quiet, and a `chk:human`
+rule cannot be cleared through the agent's own `record` path. It is not part of
+`.github/workflows/csl-matrix.yml`, which stays Python-only.
 
 ## Contribution note
 
-This adapter was written by Hermes after three failed attempts to have the sibling agent `main`
-produce it through its own gateway (the Control UI path stopped delivering to that session, verified
-by querying `transcript_events` — 0 rows). The manifest and signature above are verified first-hand;
-the blocking mechanism is the open question it was asked to settle. If `main` produces its own
-version with the refusal verified, replace this one and delete this note.
+The earlier text here recorded that the adapter was written after three failed attempts to have a
+sibling agent produce it through its own gateway. That history stands. What changed is that the
+manifest it was built on was stale, and the mistake was recording verification from a remembered
+filename instead of from the format. Read the harness's own schema before you mark a line verified.
