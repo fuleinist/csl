@@ -22,7 +22,7 @@ USAGE = """csl — a self-improving common-sense layer for agent harnesses (beta
   csl hook [--harness H] [--mode audit|gate] [--event FILE] [--explain]
 
 Environment:
-  CSL_HOME            layer directory (default ~/.csl)
+  CSL_HOME            layer directory, absolute (default ~/.csl)
   CSL_HOOK_MODE       audit (default, never blocks) | gate (blocks)
   CSL_HOOK_FAIL_CLOSED  set to 1 to block when the hook itself errors
 """
@@ -35,6 +35,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     cmd, rest = argv[0], argv[1:]
+
+    # `hook` must stay fail-open: it runs inside an agent's tool call, so a refusal there would turn
+    # a configuration mistake into a wedged turn. Every other command reports the mistake instead of
+    # writing to, or reading from, a path the user did not name.
+    if cmd != "hook":
+        refusal = paths.home_refusal()
+        if refusal:
+            print(f"csl: {refusal}", file=sys.stderr)
+            return 2
 
     if cmd == "init":
         home = paths.ensure_home()

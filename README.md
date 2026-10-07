@@ -103,7 +103,7 @@ Agent-facing usage guide: [skills/common-sense/SKILL.md](skills/common-sense/SKI
 Four suites, no test framework required:
 
 ```bash
-python tests/probe.py              # 36 adversarial cases: every bug this layer has ever had
+python tests/probe.py              # 41 adversarial cases: every bug this layer has ever had
 python tests/test_hook.py          # 19: hook classification, dialects, exit codes, fail-open
 python tests/test_hermes_bridge.py # 17: the Hermes comment bridge, the gate passthrough, fail open
 python tests/acceptance.py         # 15: candidate -> gates -> live rule -> gate -> clear, end to end

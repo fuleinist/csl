@@ -22,6 +22,33 @@ def resolve_home() -> Path:
     return Path(raw).expanduser() if raw else Path.home() / ".csl"
 
 
+class HomeNotAbsoluteError(ValueError):
+    """The configured layer home is not an absolute path on this platform."""
+
+
+def home_refusal() -> str | None:
+    """A refusal message when the configured home is not absolute, else ``None``.
+
+    A POSIX-looking value such as ``/c/Users/you/.csl`` arrives unchanged on Windows, where it is
+    **not** absolute: Windows resolves it against the current drive. The layer was then created at
+    ``<drive>:\\c\\Users\\you\\.csl``, ``csl init`` reported success, and a later ``csl hook`` read a
+    different, empty layer — so the hook answered "no rule matched" instead of reporting an error.
+
+    ``Path.is_absolute()`` already answers this per platform: ``/c/Users/x`` is absolute on POSIX
+    and not absolute on Windows. That is exactly the distinction that matters, so no per-OS branch
+    is needed here.
+    """
+    home = resolve_home()
+    if home.is_absolute():
+        return None
+    return (
+        f"CSL_HOME resolves to {str(home)!r}, which is not an absolute path on this platform.\n"
+        f"  The layer would be created somewhere the shell did not name.\n"
+        f"  Set CSL_HOME to a native absolute path, for example "
+        f"{os.path.join(str(Path.home()), '.csl')!r}"
+    )
+
+
 #: Layer root. `ROOT` is the historical alias the engine modules import.
 HOME = resolve_home()
 ROOT = HOME
@@ -40,7 +67,13 @@ def ensure_home(seed: bool = True) -> Path:
     """Create the layer directory, seeding a fresh rules file from the shipped seed.
 
     Returns the home path. Idempotent: never overwrites an existing layer.
+
+    Refuses a home that is not an absolute path, before it creates anything. See
+    :func:`home_refusal`.
     """
+    refusal = home_refusal()
+    if refusal:
+        raise HomeNotAbsoluteError(refusal)
     for d in (HOME, RETIRED, EVOLVE_LOG, PROPOSALS):
         d.mkdir(parents=True, exist_ok=True)
     for f in (LEDGER, CANDIDATES):
