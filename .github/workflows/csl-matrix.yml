@@ -28,7 +28,7 @@ jobs:
         run: csl init && csl validate
 
       # The suite must never depend on a developer's leftovers, so each runs in a fresh CSL_HOME.
-      - name: Adversarial probe (36 cases)
+      - name: Adversarial probe (41 cases)
         run: python tests/probe.py
         env:
           CSL_HOME: ${{ runner.temp }}/csl-probe

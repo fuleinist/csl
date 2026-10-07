@@ -372,6 +372,64 @@ finally:
           "no probe residue in real evidence")
 
 print()
+print("== H10: a layer home that is not an absolute path must be refused, not silently created ==")
+# Two cases. The first is platform-dependent: `/c/Users/nobody/.csl` is absolute on POSIX and NOT
+# absolute on Windows, and the assertion has to follow the platform's own answer.
+# The second is platform-independent and is the one that makes the probe bite everywhere: a RELATIVE
+# home resolves against whatever cwd the harness happens to use, which is how two shells end up with
+# two different layers. Before the fix, `csl init` created the directory, printed a mangled path, and
+# exited 0 — while a later `csl hook` read a different, empty layer and reported "no rule matched".
+_posixish = "/c/Users/nobody/.csl"
+_posixish_is_absolute = pathlib.Path(_posixish).is_absolute()
+_scratch10 = pathlib.Path(tempfile.mkdtemp(prefix="csl-h10-"))
+_old10 = os.environ.get("CSL_HOME")
+os.environ["CSL_HOME"] = _posixish
+try:
+    _refusal10 = paths.home_refusal()
+    try:
+        paths.ensure_home()
+        _raised10 = None
+    except Exception as exc:                      # noqa: BLE001 - the type IS the assertion
+        _raised10 = type(exc).__name__
+finally:
+    if _old10 is None:
+        os.environ.pop("CSL_HOME", None)
+    else:
+        os.environ["CSL_HOME"] = _old10
+
+if _posixish_is_absolute:
+    check("H10a an absolute CSL_HOME is accepted on this platform",
+          (_refusal10, _raised10), (None, None),
+          f"{_posixish!r} is absolute here, so nothing may be refused")
+else:
+    check("H10a a non-absolute CSL_HOME is refused before anything is created",
+          (_raised10, isinstance(_refusal10, str) and "CSL_HOME" in _refusal10),
+          ("HomeNotAbsoluteError", True),
+          f"{_posixish!r} is not absolute here")
+
+# A relative home is not absolute on ANY platform, so this case asserts the same thing everywhere.
+_rel10 = "rel-layer"
+_r10a = subprocess.run([sys.executable, "-m", "csl", "init"], capture_output=True, text=True,
+                       cwd=str(_scratch10), env={**os.environ, "CSL_HOME": _rel10})
+check("H10b a relative CSL_HOME is refused on every platform", _r10a.returncode, 2,
+      (_r10a.stderr.strip().splitlines() or [""])[0])
+check("H10c nothing was created for the refused home",
+      sorted(p.name for p in _scratch10.iterdir()), [],
+      "the old code wrote the layer and reported success")
+check("H10d the refusal names the cause and the fix",
+      ("CSL_HOME" in _r10a.stderr, "absolute" in _r10a.stderr), (True, True))
+
+# The hook must NOT inherit this refusal: it runs inside an agent's tool call and has to fail open.
+_h10 = subprocess.run([sys.executable, "-m", "csl", "hook", "--harness", "hermes"],
+                      input='{"hook_event_name":"pre_tool_call","tool_name":"terminal",'
+                            '"tool_input":{"command":"git push --force"},"session_id":"h10"}',
+                      capture_output=True, text=True, cwd=str(_scratch10),
+                      env={**os.environ, "CSL_HOME": _rel10})
+check("H10e the hook still fails open with a bad home (exit 0, never a block)", _h10.returncode, 0,
+      "a config mistake must not wedge a turn")
+shutil.rmtree(_scratch10, ignore_errors=True)
+
+print()
 print("== summary ==")
 bad = [r for r in results if not r[0]]
 print(f"{len(results) - len(bad)}/{len(results)} pass")

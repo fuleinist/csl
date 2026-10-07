@@ -19,6 +19,8 @@ have. So this file states the boundary plainly.
 | A candidate claiming `scope: general` while citing local specifics is downgraded | `evolve.py:decide_scope` | `probe.py` H4c/H4d |
 | Eviction maximises rules kept per character | `evolve.py:value_density` | `probe.py` H8a/H8b |
 | The package never writes into its own data directory | `paths.py` | `acceptance.py` step 15 |
+| A layer home that is not an absolute path is refused before anything is written | `paths.py:home_refusal` | `probe.py` H10 |
+| The hook keeps failing open when the layer home is invalid | `cli.py` (the guard skips `hook`) | `probe.py` H10e |
 
 ## Friction, not enforcement (deliberately)
 
