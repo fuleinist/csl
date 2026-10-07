@@ -1,10 +1,11 @@
-# DeepSeek Harness — UNVERIFIED adapter
+# DeepSeek Harness — verified against a live install, with one gap
 
-**The contract is now read from an installed build. No live block has been observed, so the status
-stays UNVERIFIED.** The install is `0.2.0-rc.2`.
+**The bridge fires inside the harness, and a deny blocks a tool call with a reason the model reads.
+One step stays unobserved: a block produced by the layer itself inside the harness.** Install:
+`0.2.0-rc.2` on Windows 11.
 
-Read [`PLAN.md`](PLAN.md). It records the verified facts, the sources, the work items, and the live
-procedure that turns this adapter into a verified one.
+Read [`CONTRACT.md`](CONTRACT.md) for the measured contract, and [`PLAN.md`](PLAN.md) for the plan
+that produced it.
 
 ## What we know now
 

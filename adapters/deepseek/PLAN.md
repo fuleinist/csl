@@ -1,8 +1,8 @@
 # Plan: verify the DeepSeek Harness adapter
 
-Status: plan only. This file implements nothing. It records what a maintainer may now read from an
-installed DeepSeek Harness, and the work that turns `adapters/deepseek/` from a placeholder into a
-verified adapter.
+Status: this plan drove the work, and the adapter now sits beside it. Every claim marked as measured
+was observed in a live run of the harness; [`CONTRACT.md`](CONTRACT.md) holds the evidence, and
+`README.md` carries the status word.
 
 The current `adapters/deepseek/README.md` says, correctly for the date it was written: "No install
 was available to inspect, so nothing here is claimed as tested." An install is now available. This
@@ -76,15 +76,21 @@ it in step 9 below. Do not guess it.
 
 ## The gate channel
 
-Exit 2 blocks the call, and the reason travels on stderr.
+**Measured: exit 2 does not block on this harness.** A hook process that exited 2 was recorded as
+`"exitCode": 1` with `"decision": "pass"`, and the tool ran anyway. An adapter built on the
+exit-code contract fails **open** here, which is the worst failure mode: the guard looks installed.
 
-- `csl hook` returns exit 2 for a `block` verdict. It writes the payload to **stdout**
+The block must therefore ride the structured channel: exit 0 with
+`hookSpecificOutput.permissionDecision: "deny"` and `permissionDecisionReason`. That form was
+observed to block the tool and to deliver the reason text to the model verbatim. See
+[`CONTRACT.md`](CONTRACT.md), section "The block path".
+
+- `csl hook` returns exit 2 for a `block` verdict, and writes the payload to **stdout**
   (see `emit` in `src/csl/hook.py`).
-- The harness reads the exit-2 reason from **stderr**.
+- The bridge translates that verdict into the structured deny, and repeats the reason on stderr for
+  a harness that honours exit 2.
 
-**Requirement.** The adapter must copy the block reason to stderr before it exits 2. A bare
-`csl hook --harness deepseek` command entry may otherwise block an action with no reason the model
-can read. This is the one place where the existing adapters are not a sufficient template.
+This is the one place where the existing adapters are not a sufficient template.
 
 csl has no `ask` decision today (`decide` returns `block`, `advise`, or `allow`). The harness
 supports `ask` on `PreToolUse`, and an absent approval answer fails closed under approval policy
@@ -103,7 +109,7 @@ maintainer.
 | Path | Status | Content |
 |---|---|---|
 | `adapters/deepseek/hooks.json` | new | The hook config to merge. Mirror the shape of `adapters/codex/hooks.json`. Declare `PreToolUse` and `UserPromptSubmit`. |
-| `adapters/deepseek/csl-bridge.py` | new | The script that queues the `PreToolUse` note, drains it on `UserPromptSubmit`, and writes the block reason to stderr. Adapt `adapters/hermes/csl-bridge.py`. |
+| `adapters/deepseek/csl-bridge.py` | new | The script that queues the `PreToolUse` note, drains it on `UserPromptSubmit`, and turns a block verdict into the structured deny. Adapt `adapters/hermes/csl-bridge.py`. |
 | `adapters/deepseek/CONTRACT.md` | new | The observed contract, the section names that hold it, and the harness version. Follow `adapters/openclaw/CONTRACT.md`. |
 | `adapters/deepseek/README.md` | rewrite | Replace the placeholder text. Keep the status word `UNVERIFIED` until the live procedure passes. |
 | `tests/test_deepseek_bridge.py` | new | The cases below. Follow `tests/test_hermes_bridge.py`. |
