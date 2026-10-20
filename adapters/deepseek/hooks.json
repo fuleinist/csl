@@ -1,0 +1,28 @@
+{
+  "_comment": "Merge into a dsh profile patch by way of the harness's own Claude Code hook bridge: mount @deepseek-ai/dsh-hooks-claude-code with configPath pointing at this file. Two entries are needed, because PreToolUse ignores additionalContext on this harness: PreToolUse gates, and UserPromptSubmit carries the audit note. Replace the command path with an absolute path to csl-bridge.py; use `python` or an absolute interpreter path. Contract checked on 2026-10-07 against DeepSeek Harness 0.2.0-rc.2 - see CONTRACT.md.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "bash|pwsh|shell|write|edit|str_replace_editor",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python /abs/path/to/csl-bridge.py pretool",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python /abs/path/to/csl-bridge.py preprompt",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
