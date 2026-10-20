@@ -60,7 +60,7 @@ def check(name, got, want, note=""):
     return ok
 
 
-def fire(entry: str, payload, mode: str = "audit", env_extra=None, path=None):
+def fire(entry: str, payload, mode: str = "audit", env_extra=None, path=None, interpreter_args=()):
     """Run one bridge entry the way dsh does: JSON on stdin, JSON or silence on stdout."""
     env = {**os.environ, "CSL_HOME": str(HOME), "CSL_BIN": CSL, "CSL_HOOK_MODE": mode}
     if env_extra:
@@ -69,8 +69,14 @@ def fire(entry: str, payload, mode: str = "audit", env_extra=None, path=None):
         env["PATH"] = path
     if not isinstance(payload, str):
         payload = json.dumps(payload)
-    return subprocess.run([sys.executable, str(BRIDGE), entry],
+    return subprocess.run([sys.executable, *interpreter_args, str(BRIDGE), entry],
                           input=payload, capture_output=True, text=True, env=env)
+
+
+# The bridge can reach an installed layer through its own interpreter, with no console script on PATH.
+# Which route answers therefore depends on the environment, and so does the expected result in case 9.
+LAYER_IMPORTABLE = subprocess.run([sys.executable, "-c", "import csl"],
+                                  capture_output=True, text=True).returncode == 0
 
 
 def event(tool: str, tool_input: dict, session: str, name: str = "PreToolUse"):
@@ -146,10 +152,13 @@ check("D18 a benign call queues nothing", r.stdout.strip(), "")
 
 print()
 print("== 6. a missing layer fails open ==")
+# Every resolution path must miss: CSL_BIN, PATH, the ~/.local/bin fallback, and the last one, which
+# runs this interpreter with `-m csl`. CI installs the layer into that interpreter, so `-S` keeps
+# site-packages off the path and the import probe fails exactly as it does with no install.
 r = fire("pretool", event("pwsh", HIGH, "dsh-nolayer"),
          env_extra={"CSL_BIN": str(EMPTY_BIN / "absent-csl"),
                     "HOME": str(EMPTY_BIN), "USERPROFILE": str(EMPTY_BIN)},
-         path=str(EMPTY_BIN))
+         path=str(EMPTY_BIN), interpreter_args=["-S"])
 check("D19 a bridge that cannot reach the layer exits 0", r.returncode, 0,
       "a wedged turn is worse than a missing guard")
 check("D20 and says nothing on stdout", r.stdout, "")
@@ -172,10 +181,16 @@ check("D23 a destructive operation is refused too", denied, "deny",
 
 print()
 print("== 9. the layer is reachable without a console script on PATH ==")
+# Hide every route that needs a file, so the interpreter fallback is the only one left: CSL_BIN, PATH,
+# and the ~/.local/bin probe. Whether that fallback answers depends on the interpreter, so assert the
+# route this environment allows — an installed layer answers, an absent one says so and exits 0.
 r = fire("pretool", event("read", BENIGN, "dsh-nopath"),
-         env_extra={"CSL_BIN": str(EMPTY_BIN / "absent-csl")}, path=str(EMPTY_BIN))
+         env_extra={"CSL_BIN": str(EMPTY_BIN / "absent-csl"),
+                    "HOME": str(EMPTY_BIN), "USERPROFILE": str(EMPTY_BIN)},
+         path=str(EMPTY_BIN))
 check("D24 an unreachable console script still ends in a decision, not a crash",
-      r.returncode, 0, "the bridge falls back to its own interpreter with `-m csl`")
+      (r.returncode, "not found and not importable" in r.stderr), (0, not LAYER_IMPORTABLE),
+      "an installed layer answers through `-m csl`; an absent one says so and exits 0")
 
 print()
 passed = sum(1 for ok, _ in results if ok)
