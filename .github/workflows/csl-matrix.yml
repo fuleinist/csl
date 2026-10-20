@@ -51,6 +51,14 @@ jobs:
         env:
           CSL_HOME: ${{ runner.temp }}/csl-accept
 
+      # The DeepSeek bridge queues the audit note on one event and delivers it on the next, and it
+      # turns a block verdict into the structured deny, because this harness does not honour exit 2.
+      # Both properties can fail silently, so run the suite.
+      - name: DeepSeek bridge tests (24 cases)
+        run: python tests/test_deepseek_bridge.py
+        env:
+          CSL_HOME: ${{ runner.temp }}/csl-dsh-bridge
+
       # A hook that blocks by accident is worse than one that misses, so assert the default.
       - name: The default mode must not block
         shell: bash

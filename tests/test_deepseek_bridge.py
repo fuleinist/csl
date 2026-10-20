@@ -19,7 +19,7 @@ Two properties must survive every change here:
   lost exit code disarms the gate and a lost reason blinds it.
 * **a missing layer fails open.** A bridge that wedges a turn is worse than a missing guard.
 
-Each case traces to the contract in `adapters/deepseek/PLAN.md`.
+Each case traces to the contract in `adapters/deepseek/CONTRACT.md`.
 """
 from __future__ import annotations
 
