@@ -48,9 +48,22 @@ EXTERNAL = re.compile(
     r"|\bmail\b|\bsendmail\b|\bsmtp\b|\btwurl\b|\bmastodon\b|\bpost\s+to\b",
     re.I,
 )
+# A scheduler EDIT, not a mention of the word. The old pattern matched a bare `cron`, so a
+# read-only command inside a cron job (`hermes cron list`, `crontab -l`) was labelled a config
+# edit and demanded a rule pass it could never legitimately give. Each alternative now names the
+# mutation it means, and a `-l` listing is excluded.
 CONFIG_EDIT = re.compile(
-    r"\bcrontab\b|\bsystemctl\b|\bschtasks\b|\bln\s+-s\b|\bconfig\.(ya?ml|json|toml)\b"
-    r"|\b\.env\b|\bopenclaw\.json\b|\bsettings\.json\b|\bscheduler\b|\bcron\b",
+    r"\bcrontab\b(?!\s+-l\b)"
+    r"|\bhermes\s+cron\s+(?:create|edit|remove|delete|pause|resume|enable|disable|clear)\b"
+    r"|\bsystemctl\s+(?:start|stop|restart|reload|try-restart|enable|disable|mask|unmask)\b"
+    r"|\bschtasks\s+/(?:create|change|delete|run|end)\b"
+    r"|\bservice\s+cron\s+(?:start|stop|restart|reload)\b"
+    r"|\bln\s+-s\b"
+    r"|\bconfig\.(?:ya?ml|json|toml)\b"
+    r"|\b\.env\b"
+    r"|\bopenclaw\.json\b"
+    r"|\bsettings\.json\b"
+    r"|\bscheduler\b",
     re.I,
 )
 

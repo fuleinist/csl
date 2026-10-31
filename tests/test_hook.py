@@ -136,6 +136,23 @@ check("19. after the human attests both rules, the gate clears",
       (r1.returncode, r2.returncode, g.returncode), (0, 0, 0),
       f"attest {r1.returncode},{r2.returncode} -> gate {g.returncode}")
 
+print()
+print("== scheduler matcher: an edit, not a mention ==")
+check("20. `crontab -l` is a read, not a config edit",
+      hook.infer_high_stakes("Bash", "crontab -l"), [])
+check("21. `hermes cron list` is a read, not a config edit",
+      hook.infer_high_stakes("Bash", "hermes cron list"), [])
+check("22. `hermes cron runs <id>` is a read, not a config edit",
+      hook.infer_high_stakes("Bash", "hermes cron runs f4ba7545e1e7"), [])
+check("23. `hermes cron edit` IS a config edit",
+      hook.infer_high_stakes("Bash", "hermes cron edit f4ba --prompt x"),
+      ["config or scheduler edit"])
+check("24. `crontab -e` IS a config edit",
+      hook.infer_high_stakes("Bash", "crontab -e"), ["config or scheduler edit"])
+check("25. `systemctl restart cron` IS a config edit",
+      hook.infer_high_stakes("Bash", "systemctl restart cron"),
+      ["config or scheduler edit"])
+
 shutil.rmtree(HOME, ignore_errors=True)
 bad = [n for ok, n in results if not ok]
 print()
