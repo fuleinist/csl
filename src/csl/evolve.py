@@ -49,14 +49,17 @@ CAP_DEFAULT = 2500
 def derive_counters(rules, ledger_path=LEDGER):
     """ev/last are DERIVED from validation.jsonl, never hand-maintained.
 
-    ev   = number of `pass` lines      (the confidence counter)
-    last = date of last *exercise*     (pass OR fail; `skip` does not refresh)
+    ev     = number of `pass` lines      (the confidence counter)
+    caught = number of `fail` lines      (violations the rule caught; value, not confidence)
+    last   = date of last *exercise*     (pass OR fail; `skip` does not refresh)
 
     last must key off exercise, not off passing: a rule that keeps catching violations on
     every run is doing its job, and keying decay off `last pass` would age out exactly the
-    rules that are earning their place.
+    rules that are earning their place. `caught` exists for the same reason: the cap ranks
+    rules by value, and a rule that catches violations earns its slot even before its first
+    `pass`.
     """
-    passes, exercised = {}, {}
+    passes, caught, exercised = {}, {}, {}
     if Path(ledger_path).exists():
         for line in Path(ledger_path).read_text(encoding="utf-8").splitlines():
             if not line.strip():
@@ -72,9 +75,12 @@ def derive_counters(rules, ledger_path=LEDGER):
                 exercised.setdefault(rid, []).append(ts)
             if status in ("pass", "human-pass"):
                 passes.setdefault(rid, []).append(ts)
+            if status in ("fail", "human-fail"):
+                caught.setdefault(rid, []).append(ts)
     for r in rules:
         ex = sorted(exercised.get(r["id"], []))
         r["ev"] = len(passes.get(r["id"], []))
+        r["caught"] = len(caught.get(r["id"], []))
         if ex:
             r["last"] = ex[-1]
     return rules
@@ -190,7 +196,12 @@ def value_density(rule):
     delete MORE rules than necessary to get back under the cap, and verbose rules were subsidised
     at the cost of terse ones. Value per character is what "density" means for a size budget.
     """
-    return rule["ev"] / max(1, days_since(rule["last"])) / max(1, len(rule_line(rule)))
+    # A `fail` is evidence the rule earns its slot: it matched and caught a violation. Counting
+    # only `pass` left a rule that caught six violations at density 0, so the cap evicted the
+    # rule that was doing its job. `caught` adds that value without inflating `ev`, which stays
+    # the confirmed-pass counter.
+    evidence = rule["ev"] + rule.get("caught", 0)
+    return evidence / max(1, days_since(rule["last"])) / max(1, len(rule_line(rule)))
 
 
 def rule_line(r):
