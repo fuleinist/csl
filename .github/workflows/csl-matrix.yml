@@ -14,6 +14,14 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python: ["3.9", "3.12"]
+        # ubuntu-latest is 26.04 from November 2026. The runner manifest holds no Python 3.9
+        # build for that release, so the oldest supported version keeps a linux leg on 24.04.
+        exclude:
+          - os: ubuntu-latest
+            python: "3.9"
+        include:
+          - os: ubuntu-24.04
+            python: "3.9"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -37,6 +45,13 @@ jobs:
         run: python tests/test_hook.py
         env:
           CSL_HOME: ${{ runner.temp }}/csl-hook
+
+      # The cap ranks rules by value density. A rule that catches violations must not rank
+      # below a rule with no evidence, or the cap evicts the rule that is doing its job.
+      - name: Evolve counter tests (6 cases)
+        run: python tests/test_evolve.py
+        env:
+          CSL_HOME: ${{ runner.temp }}/csl-evolve
 
       # The bridge is the piece that makes audit mode visible on Hermes. It is a second process
       # between the layer and the harness, so it can lose the block exit code or the note and look

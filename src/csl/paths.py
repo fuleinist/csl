@@ -6,8 +6,9 @@ as a plugin — an upgrade must never overwrite the rules an agent has earned.
 """
 from __future__ import annotations
 
+import datetime
 import os
-import shutil
+import re
 from pathlib import Path
 
 #: Environment override, so tests and multi-agent setups can point at their own layer.
@@ -80,7 +81,14 @@ def ensure_home(seed: bool = True) -> Path:
         if not f.exists():
             f.write_text("", encoding="utf-8")
     if seed and not LIVE.exists():
-        shutil.copy2(SEED, LIVE)
+        # A fresh layer must not be born stale. The shipped seed carries a fixed `last` date, so
+        # after DECAY_DAYS the first `csl evolve` or `csl validate` calls every non-human seed rule
+        # stale or dormant. Stamp the install date on the COPY, never on the seed.
+        today = datetime.date.today().isoformat()
+        text = SEED.read_text(encoding="utf-8")
+        text = re.sub(r"(\| last: )\d{4}-\d{2}-\d{2}", lambda m: m.group(1) + today, text)
+        text = re.sub(r"(updated )\d{4}-\d{2}-\d{2}", lambda m: m.group(1) + today, text, count=1)
+        LIVE.write_text(text, encoding="utf-8")
     return HOME
 
 
